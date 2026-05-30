@@ -5,152 +5,471 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bienenmessstation</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&family=DM+Mono:wght@400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --honey: #D4822A;
-  --cream: #F9F4EC;
+  --honey: #D4A843;
+  --honey-dark: #A07C28;
+  --honey-mid: #E8C35A;
+  --honey-pale: #FBF6E4;
+  --wax: #F5F2E8;
+  --bark: #2A3828;
+  --bark-mid: #4A6B45;
+  --green: #3D6B42;
+  --green-light: #DFF0E2;
+  --cream: #F2F6EE;
   --surface: #FFFFFF;
-  --border: #E6D9C5;
-  --dark: #1C1712;
-  --text-primary: #1C1712;
-  --text-secondary: #7A6550;
-  --text-muted: #B0977A;
-  --green: #3A5E3F;
+  --border: #C8D8B8;
+  --text: #1A2818;
+  --muted: #6B8060;
+  --shadow: rgba(61,36,0,0.08);
 }
+
 * { margin:0; padding:0; box-sizing:border-box; }
+
 body {
   font-family: 'DM Sans', sans-serif;
   background: var(--cream);
-  color: var(--text-primary);
+  color: var(--text);
   min-height: 100vh;
-  padding: 2.5rem 2rem;
-  max-width: 700px;
+}
+
+/* Honeycomb background */
+.hex-bg {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  opacity: 0.045;
+  pointer-events: none;
+  z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 0 L56 16 L56 50 L28 66 L0 50 L0 16 Z' fill='none' stroke='%23E8920A' stroke-width='2'/%3E%3Cpath d='M28 66 L56 50 L56 84 L28 100 L0 84 L0 50 Z' fill='none' stroke='%23E8920A' stroke-width='2'/%3E%3C/svg%3E");
+  background-size: 56px 100px;
+}
+
+.page {
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
   margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
 }
-h1 {
-  font-family: 'Playfair Display', serif;
-  font-size: 2rem;
-  font-weight: 400;
-  color: var(--dark);
-  margin-bottom: 4px;
-}
-.subtitle {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  margin-bottom: 2rem;
-  font-family: 'DM Mono', monospace;
-}
-.big-value {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 1.8rem 2rem;
-  margin-bottom: 1.2rem;
+
+/* Header */
+.header {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 2rem;
 }
-.big-number {
-  font-family: 'Playfair Display', serif;
-  font-size: 3.8rem;
-  font-weight: 400;
-  color: var(--honey);
+
+.header-left {}
+
+.bee-title {
+  font-family: 'Fraunces', serif;
+  font-size: 2.4rem;
+  font-weight: 600;
+  color: var(--bark);
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bee-emoji { font-size: 2rem; }
+
+.header-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.refresh-badge {
+  background: var(--honey-pale);
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--bark-mid);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.refresh-badge:hover { background: var(--border); }
+.pulse { width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite; }
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* Hex sensor grid */
+.sensor-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 1.5rem;
+}
+
+.sensor-hex {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: 1.1rem 0.9rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s;
+}
+
+.sensor-hex:hover { transform: translateY(-2px); }
+
+.sensor-hex.live {
+  border-color: var(--honey);
+  background: var(--honey-pale);
+}
+
+.sensor-hex::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--border);
+}
+
+.sensor-hex.live::before { background: var(--honey); }
+
+.sensor-icon { font-size: 1.4rem; margin-bottom: 4px; }
+
+.sensor-name {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.sensor-number {
+  font-family: 'Fraunces', serif;
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--honey-dark);
   line-height: 1;
 }
-.big-unit { font-size: 1rem; color: var(--text-secondary); }
-.big-label { margin-left: auto; text-align: right; }
-.big-label-main { font-size: 0.88rem; font-weight: 500; color: var(--text-primary); }
-.big-label-time { font-size: 0.75rem; color: var(--text-muted); margin-top: 3px; font-family: 'DM Mono', monospace; }
+
+.sensor-number.dim { color: var(--border); font-size: 1.2rem; }
+
+.sensor-unit {
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.sensor-tag {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.62rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.tag-live { background: var(--green-light); color: var(--green); }
+.tag-soon { background: #f0f0f0; color: #aaa; }
+
+/* Big current value */
+.current-card {
+  background: var(--bark);
+  border-radius: 20px;
+  padding: 1.8rem 2rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+
+.current-card::after {
+  content: '🍯';
+  position: absolute;
+  right: -10px;
+  bottom: -20px;
+  font-size: 7rem;
+  opacity: 0.08;
+}
+
+.current-left {}
+
+.current-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--honey-mid);
+  margin-bottom: 6px;
+  font-family: 'DM Mono', monospace;
+}
+
+.current-value {
+  font-family: 'Fraunces', serif;
+  font-size: 4rem;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1;
+}
+
+.current-unit {
+  font-size: 1.2rem;
+  color: var(--honey-mid);
+  margin-left: 4px;
+}
+
+.current-right { text-align: right; }
+
+.current-time {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--honey-mid);
+  margin-bottom: 4px;
+}
+
+.current-date {
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.6);
+}
+
+/* Chart section */
 .tabs {
   display: flex;
   gap: 4px;
   background: var(--border);
   padding: 3px;
-  border-radius: 8px;
+  border-radius: 10px;
   margin-bottom: 1rem;
 }
+
 .tab {
   flex: 1;
   padding: 8px 0;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 500;
   border: none;
   background: transparent;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  color: var(--text-secondary);
+  color: var(--bark-mid);
   transition: all 0.15s;
 }
-.tab.active { background: var(--surface); color: var(--text-primary); }
+
+.tab.active {
+  background: var(--honey);
+  color: #fff;
+}
+
 .chart-card {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 1.4rem 1.6rem;
+  border: 1.5px solid var(--border);
+  border-radius: 18px;
+  padding: 1.4rem 1.5rem;
 }
-.chart-wrap { position: relative; width: 100%; height: 220px; }
+
+.chart-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.chart-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.chart-avg {
+  font-family: 'Fraunces', serif;
+  font-size: 1.1rem;
+  color: var(--honey-dark);
+}
+
+.chart-avg-label {
+  font-size: 0.65rem;
+  color: var(--muted);
+  text-align: right;
+}
+
+.chart-wrap { position: relative; width: 100%; height: 200px; }
+
+.legend {
+  display: flex;
+  gap: 14px;
+  margin-top: 10px;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
 .panel { display: none; }
 .panel.active { display: block; }
+
 .no-data {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 180px;
-  color: var(--text-muted);
+  height: 160px;
+  color: var(--muted);
   font-size: 0.85rem;
   font-style: italic;
 }
+
 footer {
   margin-top: 2rem;
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  font-family: 'DM Mono', monospace;
   text-align: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--muted);
 }
 </style>
 </head>
 <body>
+<div class="hex-bg"></div>
+<div class="page">
 
-<h1>Mein Bienenstock</h1>
-<p class="subtitle" id="last-update">Wird geladen...</p>
+  <div class="header">
+    <div class="header-left">
+      <div class="bee-title"><span class="bee-emoji">🐝</span> Bienenstock</div>
+      <div class="header-sub" id="last-update">Wird geladen...</div>
+    </div>
+    <div class="refresh-badge" onclick="loadData()">
+      <span class="pulse"></span> Live
+    </div>
+  </div>
 
-<div class="big-value">
-  <div class="big-number" id="hero-val">–</div>
-  <div class="big-unit">%</div>
-  <div class="big-label">
-    <div class="big-label-main">Luftfeuchtigkeit</div>
-    <div class="big-label-time" id="hero-time">–</div>
+  <div class="sensor-grid">
+    <div class="sensor-hex live">
+      <div class="sensor-icon">💧</div>
+      <div class="sensor-name">Feuchte</div>
+      <div class="sensor-number" id="s-humidity">–</div>
+      <div class="sensor-unit">%RH</div>
+      <span class="sensor-tag tag-live">live</span>
+    </div>
+    <div class="sensor-hex">
+      <div class="sensor-icon">🌡️</div>
+      <div class="sensor-name">Temperatur</div>
+      <div class="sensor-number dim">–</div>
+      <div class="sensor-unit">°C</div>
+      <span class="sensor-tag tag-soon">bald</span>
+    </div>
+    <div class="sensor-hex">
+      <div class="sensor-icon">⚖️</div>
+      <div class="sensor-name">Gewicht</div>
+      <div class="sensor-number dim">–</div>
+      <div class="sensor-unit">kg</div>
+      <span class="sensor-tag tag-soon">bald</span>
+    </div>
+    <div class="sensor-hex">
+      <div class="sensor-icon">🌬️</div>
+      <div class="sensor-name">Luftdruck</div>
+      <div class="sensor-number dim">–</div>
+      <div class="sensor-unit">hPa</div>
+      <span class="sensor-tag tag-soon">bald</span>
+    </div>
+  </div>
+
+  <div class="current-card">
+    <div class="current-left">
+      <div class="current-label">Aktuelle Luftfeuchtigkeit</div>
+      <div>
+        <span class="current-value" id="hero-val">–</span>
+        <span class="current-unit">%</span>
+      </div>
+    </div>
+    <div class="current-right">
+      <div class="current-time" id="hero-time">–</div>
+      <div class="current-date" id="hero-date">–</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('tag',this)">Heute</button>
+    <button class="tab" onclick="switchTab('woche',this)">Woche</button>
+    <button class="tab" onclick="switchTab('monat',this)">Monat</button>
+  </div>
+
+  <div id="panel-tag" class="panel active">
+    <div class="chart-card">
+      <div class="chart-top">
+        <div class="chart-label">Verlauf heute</div>
+        <div>
+          <div class="chart-avg" id="avg-tag">–</div>
+          <div class="chart-avg-label">Tagesdurchschnitt</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-tag" role="img" aria-label="Tagesverlauf">Tagesverlauf</canvas></div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#D4A843;opacity:0.4"></div>Messwert</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#D4A843"></div>Geglättet</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel-woche" class="panel">
+    <div class="chart-card">
+      <div class="chart-top">
+        <div class="chart-label">Diese Woche</div>
+        <div>
+          <div class="chart-avg" id="avg-woche">–</div>
+          <div class="chart-avg-label">Wochendurchschnitt</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-woche" role="img" aria-label="Wochenverlauf">Wochenverlauf</canvas></div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#D4A843"></div>Tagesmittel</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3D6B42"></div>Trend</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel-monat" class="panel">
+    <div class="chart-card">
+      <div class="chart-top">
+        <div class="chart-label">Dieser Monat</div>
+        <div>
+          <div class="chart-avg" id="avg-monat">–</div>
+          <div class="chart-avg-label">Monatsdurchschnitt</div>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-monat" role="img" aria-label="Monatsverlauf">Monatsverlauf</canvas></div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#D4A843"></div>Tagesmittel</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3D6B42"></div>Trend</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>🐝 Aktualisiert sich automatisch alle 5 Minuten<br><br>
+<a href="#impressum" onclick="document.getElementById('impressum-box').style.display='block'" style="color:var(--muted);font-size:0.65rem;">Impressum</a>
+</footer>
+
+<div id="impressum-box" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:100;display:none;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:2rem;max-width:400px;width:90%;font-size:0.85rem;line-height:1.7;color:#1A2818;">
+    <strong style="font-family:Fraunces,serif;font-size:1.1rem;">Impressum</strong><br><br>
+    Moritz Schäfer<br>
+    Reuerergasse 4<br>
+    97070 Würzburg<br><br>
+    E-Mail: <a href="mailto:schaefer-moritz@gmx.net" style="color:#3D6B42;">schaefer-moritz@gmx.net</a><br><br>
+    <button onclick="document.getElementById('impressum-box').style.display='none'" style="margin-top:0.5rem;padding:6px 16px;border:1px solid #C8D8B8;border-radius:8px;background:#F2F6EE;cursor:pointer;font-family:DM Sans,sans-serif;">Schließen</button>
   </div>
 </div>
-
-<div class="tabs">
-  <button class="tab active" onclick="switchTab('tag', this)">Heute</button>
-  <button class="tab" onclick="switchTab('woche', this)">Diese Woche</button>
-  <button class="tab" onclick="switchTab('monat', this)">Dieser Monat</button>
 </div>
-
-<div id="panel-tag" class="panel active">
-  <div class="chart-card">
-    <div class="chart-wrap"><canvas id="chart-tag" role="img" aria-label="Tagesverlauf">Tagesverlauf</canvas></div>
-  </div>
-</div>
-<div id="panel-woche" class="panel">
-  <div class="chart-card">
-    <div class="chart-wrap"><canvas id="chart-woche" role="img" aria-label="Wochenverlauf">Wochenverlauf</canvas></div>
-  </div>
-</div>
-<div id="panel-monat" class="panel">
-  <div class="chart-card">
-    <div class="chart-wrap"><canvas id="chart-monat" role="img" aria-label="Monatsverlauf">Monatsverlauf</canvas></div>
-  </div>
-</div>
-
-<footer>Aktualisiert sich automatisch alle 10 Minuten</footer>
 
 <script>
 const SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTv2b-Pe7jkFI04DRnxjPUD5YBgdeGNkExmsovM21E3r6XmjIWj2bGlJm7W5rlH8ZM-UWhqdB0Ol3I6/pub?output=csv';
-const OFFSET = -9.888;
+const OFFSET = -8.888;
 const SMOOTH_WIN = 6;
 let rawData = [];
 let charts = {};
@@ -159,139 +478,151 @@ function parseCSV(text) {
   return text.trim().split('\n').slice(1).map(line => {
     const match = line.match(/^([^,]+),"?([^"]+)"?/);
     if (!match) return null;
-    const raw = match[1].trim(); const dp = raw.split(' '); const parts = dp[0].split('.'); const ts = parts[2]+'-'+parts[1]+'-'+parts[0]+'T'+dp[1]; return { ts, h: parseFloat(match[2].replace(',', '.')) };
+    const raw = match[1].trim();
+    const dp = raw.split(' ');
+    const parts = dp[0].split('.');
+    const ts = parts[2]+'-'+parts[1]+'-'+parts[0]+'T'+dp[1];
+    return { ts, h: parseFloat(match[2].replace(',','.')) };
   }).filter(r => r && !isNaN(r.h));
 }
 
 function smooth(arr, w) {
-  return arr.map((_, i) => {
-    const s = Math.max(0, i - Math.floor(w/2));
-    const slice = arr.slice(s, s+w);
-    return slice.reduce((a,b)=>a+b,0)/slice.length;
+  return arr.map((_,i) => {
+    const s = Math.max(0, i-Math.floor(w/2));
+    const sl = arr.slice(s, s+w);
+    return sl.reduce((a,b)=>a+b,0)/sl.length;
   });
 }
 
 function trendLine(arr) {
   const n = arr.length;
   if (n < 2) return arr.map(()=>arr[0]);
-  const mx = (n-1)/2, my = arr.reduce((a,b)=>a+b,0)/n;
-  const slope = arr.reduce((acc,y,i)=>acc+(i-mx)*(y-my),0) / arr.reduce((acc,_,i)=>acc+(i-mx)**2,0);
-  return arr.map((_,i)=>my+slope*(i-mx));
+  const mx=(n-1)/2, my=arr.reduce((a,b)=>a+b,0)/n;
+  const slope=arr.reduce((acc,y,i)=>acc+(i-mx)*(y-my),0)/arr.reduce((acc,_,i)=>acc+(i-mx)**2,0);
+  return arr.map((_,i)=>+(my+slope*(i-mx)).toFixed(2));
 }
 
 function dataRange(arr) {
-  return [Math.max(0, Math.floor(Math.min(...arr)-5)), Math.min(100, Math.ceil(Math.max(...arr)+5))];
+  return [Math.max(0,Math.floor(Math.min(...arr)-6)), Math.min(100,Math.ceil(Math.max(...arr)+6))];
 }
 
-function destroy(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+function destroy(id) { if(charts[id]){charts[id].destroy();delete charts[id];} }
 
-function makeChart(id, labels, datasets, yMin, yMax, maxTicks) {
-  destroy(id);
-  charts[id] = new Chart(document.getElementById(id), {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: '#1C1712', titleColor: '#F5E6D0', bodyColor: '#B0977A',
-          padding: 10, cornerRadius: 6,
-          callbacks: { label: ctx => ctx.parsed.y.toFixed(1) + ' %RH' }
-        }
-      },
-      scales: {
-        x: { grid: { color: '#F0E8D8' }, ticks: { color: '#B0977A', font: { family: 'DM Mono', size: 10 }, maxRotation: 0, maxTicksLimit: maxTicks||8 } },
-        y: { min: yMin, max: yMax, grid: { color: '#F0E8D8' }, ticks: { color: '#B0977A', font: { family: 'DM Mono', size: 10 }, callback: v => v.toFixed(0)+'%' } }
-      }
+const chartOpts = (yMin, yMax, maxTicks) => ({
+  responsive: true, maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: '#3D2400', titleColor: '#F5B942', bodyColor: '#EDD89A',
+      padding: 10, cornerRadius: 8,
+      callbacks: { label: ctx => ctx.parsed.y.toFixed(1)+' %RH' }
     }
-  });
-}
+  },
+  scales: {
+    x: { grid:{color:'#FEF3DC'}, ticks:{color:'#9A7240',font:{family:'DM Mono',size:10},maxRotation:0,maxTicksLimit:maxTicks||8} },
+    y: { min:yMin, max:yMax, grid:{color:'#FEF3DC'}, ticks:{color:'#9A7240',font:{family:'DM Mono',size:10},callback:v=>v.toFixed(0)+'%'} }
+  }
+});
 
 function buildTag(data) {
+  destroy('tag');
   const now = new Date();
-  const today = data.filter(r => new Date(r.ts).toDateString() === now.toDateString());
+  const today = data.filter(r => new Date(r.ts).toDateString()===now.toDateString());
   if (!today.length) { noData('chart-tag'); return; }
   const labels = today.map(r => new Date(r.ts).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
   const vals = today.map(r => +(r.h+OFFSET).toFixed(2));
   const sm = smooth(vals, SMOOTH_WIN).map(v => +v.toFixed(2));
+  const avg = (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
+  document.getElementById('avg-tag').textContent = avg+' %';
   const [yMin,yMax] = dataRange(sm);
-  makeChart('chart-tag', labels, [
-    { data: vals, borderColor: 'rgba(212,130,42,0.3)', borderWidth: 1, pointRadius: 0, tension: 0.3, fill: false, borderDash: [3,3] },
-    { data: sm, borderColor: '#D4822A', borderWidth: 2.5, pointRadius: 0, tension: 0.4, fill: { target: 'origin', above: 'rgba(212,130,42,0.07)' } }
-  ], yMin, yMax, 8);
+  charts['tag'] = new Chart(document.getElementById('chart-tag'), {
+    type:'line', data:{labels, datasets:[
+      {data:vals, borderColor:'rgba(212,168,67,0.35)', borderWidth:1, pointRadius:0, tension:0.3, fill:false, borderDash:[3,3]},
+      {data:sm, borderColor:'#D4A843', borderWidth:2.5, pointRadius:0, tension:0.4, fill:{target:'origin',above:'rgba(212,168,67,0.08)'}}
+    ]}, options: chartOpts(yMin,yMax,8)
+  });
 }
 
 function buildWoche(data) {
+  destroy('woche');
   const cutoff = new Date(Date.now()-7*86400000);
-  const week = data.filter(r => new Date(r.ts) >= cutoff);
+  const week = data.filter(r=>new Date(r.ts)>=cutoff);
   if (!week.length) { noData('chart-woche'); return; }
-  const byDay = {};
-  week.forEach(r => { const k = new Date(r.ts).toLocaleDateString('de-DE',{weekday:'short',day:'numeric'}); (byDay[k]=byDay[k]||[]).push(r.h+OFFSET); });
-  const labels = Object.keys(byDay);
-  const avgs = labels.map(k => +(byDay[k].reduce((a,b)=>a+b,0)/byDay[k].length).toFixed(2));
-  const trend = trendLine(avgs).map(v => +v.toFixed(2));
-  const [yMin,yMax] = dataRange(avgs);
-  makeChart('chart-woche', labels, [
-    { data: avgs, borderColor: '#D4822A', backgroundColor: 'rgba(212,130,42,0.07)', borderWidth: 2.5, pointRadius: 5, pointBackgroundColor: '#fff', pointBorderColor: '#D4822A', pointBorderWidth: 2, tension: 0.35, fill: true },
-    { data: trend, borderColor: '#3A5E3F', borderWidth: 1.5, borderDash: [6,4], pointRadius: 0, tension: 0 }
-  ], yMin, yMax, 7);
+  const byDay={};
+  week.forEach(r=>{const k=new Date(r.ts).toLocaleDateString('de-DE',{weekday:'short',day:'numeric'});(byDay[k]=byDay[k]||[]).push(r.h+OFFSET);});
+  const labels=Object.keys(byDay);
+  const avgs=labels.map(k=>+(byDay[k].reduce((a,b)=>a+b,0)/byDay[k].length).toFixed(2));
+  const trend=trendLine(avgs);
+  document.getElementById('avg-woche').textContent=(avgs.reduce((a,b)=>a+b,0)/avgs.length).toFixed(1)+' %';
+  const [yMin,yMax]=dataRange(avgs);
+  charts['woche'] = new Chart(document.getElementById('chart-woche'), {
+    type:'line', data:{labels, datasets:[
+      {data:avgs, borderColor:'#D4A843', backgroundColor:'rgba(212,168,67,0.08)', borderWidth:2.5, pointRadius:5, pointBackgroundColor:'#fff', pointBorderColor:'#D4A843', pointBorderWidth:2, tension:0.35, fill:true},
+      {data:trend, borderColor:'#3D6B42', borderWidth:1.5, borderDash:[6,4], pointRadius:0, tension:0}
+    ]}, options: chartOpts(yMin,yMax,7)
+  });
 }
 
 function buildMonat(data) {
+  destroy('monat');
   const cutoff = new Date(Date.now()-30*86400000);
-  const month = data.filter(r => new Date(r.ts) >= cutoff);
+  const month = data.filter(r=>new Date(r.ts)>=cutoff);
   if (!month.length) { noData('chart-monat'); return; }
-  const byDay = {};
-  month.forEach(r => { const k = new Date(r.ts).toLocaleDateString('de-DE',{day:'numeric',month:'numeric'}); (byDay[k]=byDay[k]||[]).push(r.h+OFFSET); });
-  const labels = Object.keys(byDay);
-  const avgs = labels.map(k => +(byDay[k].reduce((a,b)=>a+b,0)/byDay[k].length).toFixed(2));
-  const trend = trendLine(avgs).map(v => +v.toFixed(2));
-  const [yMin,yMax] = dataRange(avgs);
-  makeChart('chart-monat', labels, [
-    { data: avgs, borderColor: '#D4822A', backgroundColor: 'rgba(212,130,42,0.07)', borderWidth: 2.5, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderColor: '#D4822A', pointBorderWidth: 2, tension: 0.35, fill: true },
-    { data: trend, borderColor: '#3A5E3F', borderWidth: 1.5, borderDash: [6,4], pointRadius: 0, tension: 0 }
-  ], yMin, yMax, 10);
+  const byDay={};
+  month.forEach(r=>{const k=new Date(r.ts).toLocaleDateString('de-DE',{day:'numeric',month:'numeric'});(byDay[k]=byDay[k]||[]).push(r.h+OFFSET);});
+  const labels=Object.keys(byDay);
+  const avgs=labels.map(k=>+(byDay[k].reduce((a,b)=>a+b,0)/byDay[k].length).toFixed(2));
+  const trend=trendLine(avgs);
+  document.getElementById('avg-monat').textContent=(avgs.reduce((a,b)=>a+b,0)/avgs.length).toFixed(1)+' %';
+  const [yMin,yMax]=dataRange(avgs);
+  charts['monat'] = new Chart(document.getElementById('chart-monat'), {
+    type:'line', data:{labels, datasets:[
+      {data:avgs, borderColor:'#D4A843', backgroundColor:'rgba(212,168,67,0.08)', borderWidth:2.5, pointRadius:3, pointBackgroundColor:'#fff', pointBorderColor:'#D4A843', pointBorderWidth:2, tension:0.35, fill:true},
+      {data:trend, borderColor:'#3D6B42', borderWidth:1.5, borderDash:[6,4], pointRadius:0, tension:0}
+    ]}, options: chartOpts(yMin,yMax,10)
+  });
 }
 
 function noData(id) {
-  const c = document.getElementById(id);
-  if (c) c.parentElement.innerHTML = '<div class="no-data">Noch keine Daten fuer diesen Zeitraum</div>';
+  const c=document.getElementById(id);
+  if(c) c.parentElement.innerHTML='<div class="no-data">Noch keine Daten fuer diesen Zeitraum 🍯</div>';
 }
 
 function updateHero(data) {
   if (!data.length) return;
-  const last = data[data.length-1];
-  const val = (last.h+OFFSET).toFixed(1);
-  document.getElementById('hero-val').textContent = val;
-  const t = new Date(last.ts);
-  document.getElementById('hero-time').textContent = 'Zuletzt um ' + t.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) + ' Uhr';
-  document.getElementById('last-update').textContent = 'Stand: ' + t.toLocaleDateString('de-DE',{day:'numeric',month:'long'}) + ', ' + t.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) + ' Uhr';
+  const last=data[data.length-1];
+  const val=(last.h+OFFSET).toFixed(1);
+  document.getElementById('hero-val').textContent=val;
+  document.getElementById('s-humidity').textContent=val;
+  const t=new Date(last.ts);
+  document.getElementById('hero-time').textContent='Zuletzt um '+t.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr';
+  document.getElementById('hero-date').textContent=t.toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('last-update').textContent='Stand: '+t.toLocaleDateString('de-DE',{day:'numeric',month:'long'})+' um '+t.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr';
 }
 
 async function loadData() {
   try {
-    const res = await fetch(SHEETS_URL);
-    const text = await res.text();
-    rawData = parseCSV(text);
+    const res=await fetch(SHEETS_URL+'&t='+Date.now());
+    const text=await res.text();
+    rawData=parseCSV(text);
     updateHero(rawData);
     buildTag(rawData);
     buildWoche(rawData);
     buildMonat(rawData);
   } catch(e) {
-    document.getElementById('last-update').textContent = 'Verbindungsfehler - wird erneut versucht...';
+    document.getElementById('last-update').textContent='Verbindungsfehler - wird erneut versucht...';
   }
 }
 
 function switchTab(tab, btn) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('panel-'+tab).classList.add('active');
 }
 
 loadData();
-setInterval(loadData, 600000);
+setInterval(loadData, 300000);
 </script>
 </body>
 </html>
