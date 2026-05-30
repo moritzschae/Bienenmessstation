@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bienenmessstation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&family=DM+Mono:wght@400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --honey: #D4822A;
+  --cream: #F9F4EC;
+  --surface: #FFFFFF;
+  --border: #E6D9C5;
+  --dark: #1C1712;
+  --text-primary: #1C1712;
+  --text-secondary: #7A6550;
+  --text-muted: #B0977A;
+  --green: #3A5E3F;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--cream);
+  color: var(--text-primary);
+  min-height: 100vh;
+  padding: 2.5rem 2rem;
+  max-width: 700px;
+  margin: 0 auto;
+}
+h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 2rem;
+  font-weight: 400;
+  color: var(--dark);
+  margin-bottom: 4px;
+}
+.subtitle {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+  font-family: 'DM Mono', monospace;
+}
+.big-value {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.8rem 2rem;
+  margin-bottom: 1.2rem;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.big-number {
+  font-family: 'Playfair Display', serif;
+  font-size: 3.8rem;
+  font-weight: 400;
+  color: var(--honey);
+  line-height: 1;
+}
+.big-unit { font-size: 1rem; color: var(--text-secondary); }
+.big-label { margin-left: auto; text-align: right; }
+.big-label-main { font-size: 0.88rem; font-weight: 500; color: var(--text-primary); }
+.big-label-time { font-size: 0.75rem; color: var(--text-muted); margin-top: 3px; font-family: 'DM Mono', monospace; }
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--border);
+  padding: 3px;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+.tab {
+  flex: 1;
+  padding: 8px 0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+}
+.tab.active { background: var(--surface); color: var(--text-primary); }
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.4rem 1.6rem;
+}
+.chart-wrap { position: relative; width: 100%; height: 220px; }
+.panel { display: none; }
+.panel.active { display: block; }
+.no-data {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 180px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+footer {
+  margin-top: 2rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: 'DM Mono', monospace;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+
+<h1>Mein Bienenstock</h1>
+<p class="subtitle" id="last-update">Wird geladen...</p>
+
+<div class="big-value">
+  <div class="big-number" id="hero-val">–</div>
+  <div class="big-unit">%</div>
+  <div class="big-label">
+    <div class="big-label-main">Luftfeuchtigkeit</div>
+    <div class="big-label-time" id="hero-time">–</div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('tag', this)">Heute</button>
+  <button class="tab" onclick="switchTab('woche', this)">Diese Woche</button>
+  <button class="tab" onclick="switchTab('monat', this)">Dieser Monat</button>
+</div>
+
+<div id="panel-tag" class="panel active">
+  <div class="chart-card">
+    <div class="chart-wrap"><canvas id="chart-tag" role="img" aria-label="Tagesverlauf">Tagesverlauf</canvas></div>
+  </div>
+</div>
+<div id="panel-woche" class="panel">
+  <div class="chart-card">
+    <div class="chart-wrap"><canvas id="chart-woche" role="img" aria-label="Wochenverlauf">Wochenverlauf</canvas></div>
+  </div>
+</div>
+<div id="panel-monat" class="panel">
+  <div class="chart-card">
+    <div class="chart-wrap"><canvas id="chart-monat" role="img" aria-label="Monatsverlauf">Monatsverlauf</canvas></div>
+  </div>
+</div>
+
+<footer>Aktualisiert sich automatisch alle 10 Minuten</footer>
+
+<script>
+const SHEETS_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTv2b-Pe7jkFI04DRnxjPUD5YBgdeGNkExmsovM21E3r6XmjIWj2bGlJm7W5rlH8ZM-UWhqdB0Ol3I6/pub?output=csv';
+const OFFSET = -9.888;
+const SMOOTH_WIN = 6;
+let rawData = [];
+let charts = {};
+
+function parseCSV(text) {
+  return text.trim().split('\n').slice(1).map(line => {
+    const match = line.match(/^([^,]+),"?([^"]+)"?/);
+    if (!match) return null;
+    const raw = match[1].trim(); const dp = raw.split(' '); const parts = dp[0].split('.'); const ts = parts[2]+'-'+parts[1]+'-'+parts[0]+'T'+dp[1]; return { ts, h: parseFloat(match[2].replace(',', '.')) };
+  }).filter(r => r && !isNaN(r.h));
+}
+
+function smooth(arr, w) {
+  return arr.map((_, i) => {
+    const s = Math.max(0, i - Math.floor(w/2));
+    const slice = arr.slice(s, s+w);
+    return slice.reduce((a,b)=>a+b,0)/slice.length;
+  });
+}
+
+function trendLine(arr) {
+  const n = arr.length;
+  if (n < 2) return arr.map(()=>arr[0]);
+  const mx = (n-1)/2, my = arr.reduce((a,b)=>a+b,0)/n;
+  const slope = arr.reduce((acc,y,i)=>acc+(i-mx)*(y-my),0) / arr.reduce((acc,_,i)=>acc+(i-mx)**2,0);
+  return arr.map((_,i)=>my+slope*(i-mx));
+}
+
+function dataRange(arr) {
+  return [Math.max(0, Math.floor(Math.min(...arr)-5)), Math.min(100, Math.ceil(Math.max(...arr)+5))];
+}
+
+function destroy(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+function makeChart(id, labels, datasets, yMin, yMax, maxTicks) {
+  destroy(id);
+  charts[id] = new Chart(document.getElementById(id), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1C1712', titleColor: '#F5E6D0', bodyColor: '#B0977A',
+          padding: 10, cornerRadius: 6,
+          callbacks: { label: ctx => ctx.parsed.y.toFixed(1) + ' %RH' }
+        }
+      },
+      scales: {
+        x: { grid: { color: '#F0E8D8' }, ticks: { color: '#B0977A', font: { family: 'DM Mono', size: 10 }, maxRotation: 0, maxTicksLimit: maxTicks||8 } },
+        y: { min: yMin, max: yMax, grid: { color: '#F0E8D8' }, ticks: { color: '#B0977A', font: { family: 'DM Mono', size: 10 }, callback: v => v.toFixed(0)+'%' } }
+      }
+    }
+  });
+}
+
+function buildTag(data) {
+  const now = new Date();
+  const today = data.filter(r => new Date(r.ts).toDateString() === now.toDateString());
+  if (!today.length) { noData('chart-tag'); return; }
+  const labels = today.map(r => new Date(r.ts).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
+  const vals = today.map(r => +(r.h+OFFSET).toFixed(2));
+  const sm = smooth(vals, SMOOTH_WIN).map(v => +v.toFixed(2));
+  const [yMin,yMax] = dataRange(sm);
+  makeChart('chart-tag', labels, [
+    { data: vals, borderColor: 'rgba(212,130,42,0.3)', borderWidth: 1, pointRadius: 0, tension: 0.3, fill: false, borderDash: [3,3] },
+    { data: sm, borderColor: '#D4822A', borderWidth: 2.5, pointRadius: 0, tension: 0.4, fill: { target: 'origin', above: 'rgba(212,130,42,0.07)' } }
+  ], yMin, yMax, 8);
+}
+
+function buildWoche(data) {
+  const cutoff = new Date(Date.now()-7*86400000);
+  const week = data.filter(r => new Date(r.ts) >= cutoff);
+  if (!week.length) { noData('chart-woche'); return; }
+  const byDay = {};
+  week.forEach(r => { const k = new Date(r.ts).toLocaleDateString('de-DE',{weekday:'short',day:'numeric'}); (byDay[k]=byDay[k]||[]).push(r.h+OFFSET); });
+  const labels = Object.keys(byDay);
+  const avgs = labels.map(k => +(byDay[k].reduce((a,b)=>a+b,0)/byDay[k].length).toFixed(2));
+  const trend = trendLine(avgs).map(v => +v.toFixed(2));
+  const [yMin,yMax] = dataRange(avgs);
+  makeChart('chart-woche', labels, [
+    { data: avgs, borderColor: '#D4822A', backgroundColor: 'rgba(212,130,42,0.07)', borderWidth: 2.5, pointRadius: 5, pointBackgroundColor: '#fff', pointBorderColor: '#D4822A', pointBorderWidth: 2, tension: 0.35, fill: true },
+    { data: trend, borderColor: '#3A5E3F', borderWidth: 1.5, borderDash: [6,4], pointRadius: 0, tension: 0 }
+  ], yMin, yMax, 7);
+}
+
+function buildMonat(data) {
+  const cutoff = new Date(Date.now()-30*86400000);
+  const month = data.filter(r => new Date(r.ts) >= cutoff);
+  if (!month.length) { noData('chart-monat'); return; }
+  const byDay = {};
+  month.forEach(r => { const k = new Date(r.ts).toLocaleDateString('de-DE',{day:'numeric',month:'numeric'}); (byDay[k]=byDay[k]||[]).push(r.h+OFFSET); });
+  const labels = Object.keys(byDay);
+  const avgs = labels.map(k => +(byDay[k].reduce((a,b)=>a+b,0)/byDay[k].length).toFixed(2));
+  const trend = trendLine(avgs).map(v => +v.toFixed(2));
+  const [yMin,yMax] = dataRange(avgs);
+  makeChart('chart-monat', labels, [
+    { data: avgs, borderColor: '#D4822A', backgroundColor: 'rgba(212,130,42,0.07)', borderWidth: 2.5, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderColor: '#D4822A', pointBorderWidth: 2, tension: 0.35, fill: true },
+    { data: trend, borderColor: '#3A5E3F', borderWidth: 1.5, borderDash: [6,4], pointRadius: 0, tension: 0 }
+  ], yMin, yMax, 10);
+}
+
+function noData(id) {
+  const c = document.getElementById(id);
+  if (c) c.parentElement.innerHTML = '<div class="no-data">Noch keine Daten fuer diesen Zeitraum</div>';
+}
+
+function updateHero(data) {
+  if (!data.length) return;
+  const last = data[data.length-1];
+  const val = (last.h+OFFSET).toFixed(1);
+  document.getElementById('hero-val').textContent = val;
+  const t = new Date(last.ts);
+  document.getElementById('hero-time').textContent = 'Zuletzt um ' + t.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) + ' Uhr';
+  document.getElementById('last-update').textContent = 'Stand: ' + t.toLocaleDateString('de-DE',{day:'numeric',month:'long'}) + ', ' + t.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) + ' Uhr';
+}
+
+async function loadData() {
+  try {
+    const res = await fetch(SHEETS_URL);
+    const text = await res.text();
+    rawData = parseCSV(text);
+    updateHero(rawData);
+    buildTag(rawData);
+    buildWoche(rawData);
+    buildMonat(rawData);
+  } catch(e) {
+    document.getElementById('last-update').textContent = 'Verbindungsfehler - wird erneut versucht...';
+  }
+}
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-'+tab).classList.add('active');
+}
+
+loadData();
+setInterval(loadData, 600000);
+</script>
+</body>
+</html>
